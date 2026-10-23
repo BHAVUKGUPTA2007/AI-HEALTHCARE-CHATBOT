@@ -1,0 +1,184 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f766e">
+    <title>HealthCare AI Chatbot</title>
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="app-container">
+        <header class="header">
+            <div class="logo">✚</div>
+            <div>
+                <h1>HealthCare AI</h1>
+                <p>Your health information assistant</p>
+            </div>
+            <span class="status">
+                <span class="status-dot"></span> Online
+            </span>
+        </header>
+
+        <section class="notice">
+            <strong>Important:</strong>
+            This chatbot provides general health information, not
+            medical diagnosis or treatment. For emergencies, contact
+            your local emergency services immediately.
+        </section>
+
+        <section class="chat-section" aria-label="Chat conversation">
+            <div class="welcome" id="welcome">
+                <div class="welcome-icon">♥</div>
+                <h2>How can I help you today?</h2>
+                <p>Type your health-related question below to get started.</p>
+
+                <div class="suggestions">
+                    <button type="button" class="suggestion"
+                            data-question="What can cause a headache?">
+                        What causes headaches?
+                    </button>
+                    <button type="button" class="suggestion"
+                            data-question="How can I improve my sleep?">
+                        How can I sleep better?
+                    </button>
+                    <button type="button" class="suggestion"
+                            data-question="What is a balanced diet?">
+                        Healthy eating tips
+                    </button>
+                    <button type="button" class="suggestion"
+                            data-question="How can I manage stress?">
+                        Stress management
+                    </button>
+                </div>
+            </div>
+
+            <div id="messages" class="messages"
+                 aria-live="polite" aria-relevant="additions"></div>
+
+            <div id="loading" class="loading" hidden>
+                <span></span><span></span><span></span>
+                <p>Preparing your response...</p>
+            </div>
+        </section>
+
+        <form id="chat-form" class="input-area">
+            <label class="sr-only" for="message-input">
+                Enter your health question
+            </label>
+            <textarea id="message-input" name="message"
+                      placeholder="Ask a health-related question..."
+                      rows="1" maxlength="2000" required></textarea>
+            <button id="send-button" type="submit">Send ↑</button>
+        </form>
+
+        <footer>
+            General educational information only · Not a substitute
+            for professional medical care
+        </footer>
+    </main>
+
+    <script>
+        const form = document.getElementById("chat-form");
+        const input = document.getElementById("message-input");
+        const messages = document.getElementById("messages");
+        const loading = document.getElementById("loading");
+        const sendButton = document.getElementById("send-button");
+        const welcome = document.getElementById("welcome");
+
+        function addMessage(text, sender) {
+            const row = document.createElement("div");
+            row.className = `message-row ${sender}`;
+
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+
+            // Use textContent to prevent HTML injection.
+            bubble.textContent = text;
+
+            const label = document.createElement("span");
+            label.className = "message-label";
+            label.textContent = sender === "user" ? "You" : "HealthCare AI";
+
+            row.appendChild(label);
+            row.appendChild(bubble);
+            messages.appendChild(row);
+
+            row.scrollIntoView({ behavior: "smooth", block: "end" });
+        }
+
+        async function sendMessage(question) {
+            const message = question.trim();
+
+            if (!message || sendButton.disabled) {
+                return;
+            }
+
+            welcome.hidden = true;
+            addMessage(message, "user");
+            input.value = "";
+            input.style.height = "auto";
+            loading.hidden = false;
+            sendButton.disabled = true;
+            input.disabled = true;
+
+            try {
+                const response = await fetch("/chat", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.error || "Unable to process your question."
+                    );
+                }
+
+                addMessage(data.answer, "bot");
+            } catch (error) {
+                addMessage(
+                    error.message ||
+                    "Unable to connect. Please check your connection and try again.",
+                    "bot"
+                );
+            } finally {
+                loading.hidden = true;
+                sendButton.disabled = false;
+                input.disabled = false;
+                input.focus();
+            }
+        }
+
+        form.addEventListener("submit", function (event) {
+            event.preventDefault();
+            sendMessage(input.value);
+        });
+
+        input.addEventListener("input", function () {
+            input.style.height = "auto";
+            input.style.height =
+                Math.min(input.scrollHeight, 140) + "px";
+        });
+
+        input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                form.requestSubmit();
+            }
+        });
+
+        document.querySelectorAll(".suggestion").forEach(function (button) {
+            button.addEventListener("click", function () {
+                sendMessage(button.dataset.question);
+            });
+        });
+    </script>
+</body>
+</html>
